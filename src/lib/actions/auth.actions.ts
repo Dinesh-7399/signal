@@ -1,8 +1,9 @@
 'use server';
 
-import {auth} from "@/lib/better-auth/auth";
-import {inngest} from "@/lib/inngest/client";
-import {headers} from "next/headers";
+import { auth } from "@/lib/better-auth/auth";
+import { inngest } from "@/lib/inngest/client";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const signUpWithEmail = async ({ email, password, fullName, country, investmentGoals, riskTolerance, preferredIndustry }: SignUpFormData) => {
     try {
@@ -41,3 +42,20 @@ export const signOut = async () => {
         return { success: false, error: 'Sign out failed' }
     }
 }
+
+export const signInWithSocial = async (formData: FormData) => {
+    const provider = formData.get('provider') as 'google' | 'github' | 'facebook';
+    
+    const { url } = await auth.api.signInSocial({
+        body: {
+            provider,
+            callbackURL: '/',
+            disableRedirect: true,
+        },
+        headers: await headers(),
+    });
+
+    if (url) {
+        redirect(url);
+    }
+};

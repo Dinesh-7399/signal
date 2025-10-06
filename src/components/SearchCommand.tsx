@@ -2,42 +2,45 @@
 
 import { useEffect, useState } from "react"
 import { CommandDialog, CommandEmpty, CommandInput, CommandList } from "@/components/ui/command"
-import {Button} from "@/components/ui/button";
-import {Loader2,  TrendingUp} from "lucide-react";
-import Link from "next/link";
-import {searchStocks} from "@/lib/actions/finnhub.actions";
-import {useDebounce} from "@/hooks/useDebounce";
+import { Button } from "@/components/ui/button"
+import { Loader2, TrendingUp } from "lucide-react"
+import Link from "next/link"
+import { searchStocks } from "@/lib/actions/finnhub.actions"
+import { useDebounce } from "@/hooks/useDebounce"
 
-export default function SearchCommand({ renderAs = 'button', label = 'Add stock', initialStocks }: SearchCommandProps) {
+export default function SearchCommand({
+  renderAs = "button",
+  label = "Add stock",
+  initialStocks,
+}: SearchCommandProps) {
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(false)
-  const [stocks, setStocks] = useState<StockWithWatchlistStatus[]>(initialStocks);
+  const [stocks, setStocks] = useState<StockWithWatchlistStatus[]>(initialStocks)
 
-  const isSearchMode = !!searchTerm.trim();
-  const displayStocks = isSearchMode ? stocks : stocks?.slice(0, 10);
+  const isSearchMode = !!searchTerm.trim()
+  const displayStocks = isSearchMode ? stocks : stocks?.slice(0, 10)
 
-  // Keyboard shortcut to open the dialog (Cmd+K or Ctrl+K)
+  // 🔹 Keyboard shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault()
-        setOpen(v => !v)
+        setOpen((v) => !v)
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
-  // Function to perform the stock search
+  // 🔹 Search stocks
   const handleSearch = async () => {
-    // If no search term, revert to initial popular stocks
-    if(!isSearchMode) return setStocks(initialStocks);
+    if (!isSearchMode) return setStocks(initialStocks)
 
     setLoading(true)
     try {
-        const results = await searchStocks(searchTerm.trim());
-        setStocks(results);
+      const results = await searchStocks(searchTerm.trim())
+      setStocks(results)
     } catch {
       setStocks([])
     } finally {
@@ -45,78 +48,82 @@ export default function SearchCommand({ renderAs = 'button', label = 'Add stock'
     }
   }
 
-  // Debounce the search input to limit API calls
-  const debouncedSearch = useDebounce(handleSearch, 300);
-
+  // 🔹 Debounce search
+  const debouncedSearch = useDebounce(handleSearch, 300)
   useEffect(() => {
-    debouncedSearch();
-  }, [searchTerm,debouncedSearch]);
+    debouncedSearch()
+  }, [searchTerm])
 
-  // Handler for selecting a stock item (closes dialog, resets state)
+  // 🔹 Handle selecting a stock
   const handleSelectStock = () => {
-    setOpen(false);
-    setSearchTerm("");
-    setStocks(initialStocks);
+    setOpen(false)
+    setSearchTerm("")
+    setStocks(initialStocks)
   }
+
+  // 🔹 Optional: Deduplicate displayStocks
+  const uniqueStocks = Array.from(
+    new Map(displayStocks.map((s) => [`${s.symbol}-${s.exchange}`, s])).values()
+  )
 
   return (
     <>
-      {/* Renders the trigger as a link/text or a full button */}
-      {renderAs === 'text' ? (
-          <span onClick={() => setOpen(true)} className="search-text">
-            {label}
-          </span>
-      ): (
-          <Button onClick={() => setOpen(true)} className="search-btn">
-            {label}
-          </Button>
+      {renderAs === "text" ? (
+        <span onClick={() => setOpen(true)} className="search-text">
+          {label}
+        </span>
+      ) : (
+        <Button onClick={() => setOpen(true)} className="search-btn">
+          {label}
+        </Button>
       )}
-      
-      {/* The Search Dialog */}
+
       <CommandDialog open={open} onOpenChange={setOpen} className="search-dialog">
         <div className="search-field">
-          <CommandInput value={searchTerm} onValueChange={setSearchTerm} placeholder="Search stocks..." className="search-input" />
-          {loading && <Loader2 className="search-loader" />}
+          <CommandInput
+            value={searchTerm}
+            onValueChange={setSearchTerm}
+            placeholder="Search stocks..."
+            className="search-input"
+          />
+          {loading && <Loader2 className="search-loader animate-spin" />}
         </div>
+
         <CommandList className="search-list">
           {loading ? (
-              <CommandEmpty className="search-list-empty">Loading stocks...</CommandEmpty>
-          ) : displayStocks?.length === 0 ? (
-              <div className="search-list-indicator">
-                {isSearchMode ? 'No results found' : 'No stocks available'}
-              </div>
-            ) : (
+            <CommandEmpty className="search-list-empty">Loading stocks...</CommandEmpty>
+          ) : uniqueStocks?.length === 0 ? (
+            <div className="search-list-indicator">
+              {isSearchMode ? "No results found" : "No stocks available"}
+            </div>
+          ) : (
             <ul>
-              {/* Header for search results or popular stocks */}
               <div className="search-count">
-                {isSearchMode ? 'Search results' : 'Popular stocks'}
-                {` `}({displayStocks?.length || 0})
+                {isSearchMode ? "Search results" : "Popular stocks"} ({uniqueStocks.length})
               </div>
-              
-              {/* Map and render stock results */}
-              {displayStocks?.map((stock) => (
-                  // FIX: Using composite key (symbol-exchange) to prevent non-unique key error
-                  <li key={`${stock.symbol}-${stock.exchange}`} className="search-item">
-                    <Link
-                        href={`/stocks/${stock.symbol}`}
-                        onClick={handleSelectStock}
-                        className="search-item-link"
-                    >
-                      <TrendingUp className="h-4 w-4 text-gray-500" />
-                      <div  className="flex-1">
-                        <div className="search-item-name">
-                          {stock.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {stock.symbol} | {stock.exchange } | {stock.type}
-                        </div>
+
+              {uniqueStocks.map((stock, index) => (
+                <li
+                  key={`${stock.symbol}-${stock.exchange}-${index}`} // ✅ Unique key fix
+                  className="search-item"
+                >
+                  <Link
+                    href={`/stocks/${stock.symbol}`}
+                    onClick={handleSelectStock}
+                    className="search-item-link"
+                  >
+                    <TrendingUp className="h-4 w-4 text-gray-500" />
+                    <div className="flex-1">
+                      <div className="search-item-name">{stock.name}</div>
+                      <div className="text-sm text-gray-500">
+                        {stock.symbol} | {stock.exchange} | {stock.type}
                       </div>
-                    </Link>
-                  </li>
+                    </div>
+                  </Link>
+                </li>
               ))}
             </ul>
-          )
-          }
+          )}
         </CommandList>
       </CommandDialog>
     </>
